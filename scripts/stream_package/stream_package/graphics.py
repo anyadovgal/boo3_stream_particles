@@ -203,7 +203,7 @@ def streamorbitslmc(mass, o, tdisrupt, pot=MWPotential2014, nstar=100):
                        rtpot=pot,
                        leading=False)
     
-    #Sample the distribution functions to create nstar
+    #Sample the distribution functions to ,create nstar
     #returndt lets you know the time the star was ejected 
     #integrate=True returns the stars integrated 
     #position and velocity at time = tdisrupt
@@ -223,3 +223,47 @@ def streamorbitslmc(mass, o, tdisrupt, pot=MWPotential2014, nstar=100):
     dtall_lmc=np.append(dt_lmc,dtt_lmc)
     
     return o_lmc, oall_lmc, dtall_lmc
+
+def orbit_plots(o, pot, tint=5):
+    delt = np.linspace(0,-tint/to,1000)
+    deltfwd = np.linspace(0, tint/to, 1000)
+    
+    oint_p1 = o()
+    oint_p1.integrate(delt, pot=pot)
+    ointfwd_p1 = o()
+    ointfwd_p1.integrate(deltfwd, pot=pot)
+
+    fig, axs = plt.subplots(2, 2, figsize=(10,10))
+
+    # Orbit in X-Y
+    ax1 = axs[0,0]
+    ax1.plot(oint_p1.x(delt)*ro, oint_p1.y(delt)*ro, "b--")
+    ax1.plot(ointfwd_p1.x(deltfwd)*ro, ointfwd_p1.y(deltfwd)*ro, "b-")
+    ax1.set_xlabel('X (kpc)')
+    ax1.set_ylabel('Y (kpc)')
+
+    # Orbit in X-Z
+    ax2 = axs[0,1]
+    ax2.plot(oint_p1.x(delt)*ro, oint_p1.z(delt)*ro, "b--")
+    ax2.plot(ointfwd_p1.x(deltfwd)*ro, ointfwd_p1.z(deltfwd)*ro, "b-")
+    ax2.set_xlabel('X (kpc)')
+    ax2.set_ylabel('Z (kpc)')
+
+    # Orbit in Y-Z
+    ax3 = axs[1,0]
+    ax3.plot(oint_p1.y(delt)*ro, oint_p1.z(delt)*ro, "b--")
+    ax3.plot(ointfwd_p1.y(deltfwd)*ro, ointfwd_p1.z(deltfwd)*ro, "b-")
+    ax3.set_xlabel('Y (kpc)')
+    ax3.set_ylabel('Z (kpc)')
+
+    # Orbit radius vs. time
+    ax4 = axs[1,1]
+    ax4.plot(delt*to, oint_p1.r(delt)*ro, "k--")
+    ax4.plot(deltfwd*to, ointfwd_p1.r(deltfwd)*ro, "k-")
+    ax4.set_xlabel('time (Gyr)')
+    ax4.set_ylabel('Radius (kpc)')
+
+    print('Pericentre is at', min(oint_p1.r(delt)*ro), 'kpc')
+    print('Apocentre is at', max(oint_p1.r(delt)*ro), 'kpc')
+
+    return fig
