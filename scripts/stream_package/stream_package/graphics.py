@@ -1,6 +1,7 @@
 from galpy.orbit import Orbit
 from galpy import potential
 import numpy as np
+from astropy import units
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d as p3
 from matplotlib import animation
@@ -224,6 +225,86 @@ def streamorbitslmc(mass, o, tdisrupt, pot=MWPotential2014, nstar=100):
     
     return o_lmc, oall_lmc, dtall_lmc
 
+def lmc_potential_wacc(tdisrupt, pot=MWPotential2014):
+    olmc= Orbit.from_name('LMC')
+    cdf= ChandrasekharDynamicalFrictionForce(GMs=10.**11.*units.Msun,rhm=5.*units.kpc,
+                                                 dens=MWPotential2014)
+    ts= np.linspace(0.,-tdisrupt,1001)*units.Gyr
+    olmc.integrate(ts,pot+cdf)
+    
+    lmcpot= HernquistPotential(amp=2*10.**11.*units.Msun,
+                               a=5.*units.kpc/(1.+np.sqrt(2.))) #rhm = (1+sqrt(2)) a
+    moving_lmcpot= MovingObjectPotential(olmc,pot=lmcpot)
+    
+    from galpy.potential import (evaluateRforces, evaluatephitorques,
+                                 evaluatezforces)
+    loc_origin= 1e-4 # Small offset in R to avoid numerical issues
+    ax= lambda t: evaluateRforces(moving_lmcpot,loc_origin,0.,phi=0.,t=t,
+                                      use_physical=False)
+    ay= lambda t: evaluatephitorques(moving_lmcpot,loc_origin,0.,phi=0.,t=t,
+                                        use_physical=False)/loc_origin
+    az= lambda t: evaluatezforces(moving_lmcpot,loc_origin,0.,phi=0.,t=t,
+                                      use_physical=False)
+    
+    t_intunits= olmc.time(use_physical=False)[::-1] # need to reverse the order for interp
+    ax4int= np.array([ax(t) for t in t_intunits])
+    ax_int= lambda t: np.interp(t,t_intunits,ax4int)
+    ay4int= np.array([ay(t) for t in t_intunits])
+    ay_int= lambda t: np.interp(t,t_intunits,ay4int)
+    az4int= np.array([az(t) for t in t_intunits])
+    az_int= lambda t: np.interp(t,t_intunits,az4int)
+    
+    from galpy.potential import NonInertialFrameForce
+    nip= NonInertialFrameForce(a0=[ax_int,ay_int,az_int])
+    
+    return moving_lmcpot + pot + nip
+    
+def streamorbitslmc_acc(mass, o, tdisrupt, pot=MWPotential2014, nstar=100):
+    o_lmc = Orbit.from_name('LMC', ro=ro, vo=vo, solarmotion=[-11.1, 24.0, 7.25])
+    total_pot = lmc_potential_wacc(tdisrupt, pot=MWPotential2014)
+    
+    #Now when you intitialize the distribution functions
+    #you have to specify rtpot, which is the potential
+    #used to calculate the cluster's tidal radius. The
+    #calculation can't be done when the MovingPotential
+    #is included in total_pot
+
+    #Distribution function for the leading tail
+    #Note input values are scaled to galpy units
+    spdf_lmc= streamspraydf(mass/mo,
+                       progenitor=o,
+                       pot=total_pot,
+                       tdisrupt=tdisrupt/to,
+                       rtpot=pot)
+    #Distribution function for the trailing tail
+    spdft_lmc= streamspraydf(mass/mo,
+                       progenitor=o,
+                       pot=total_pot,
+                       tdisrupt=tdisrupt/to,
+                       rtpot=pot,
+                       leading=False)
+    
+    #Sample the distribution functions to ,create nstar
+    #returndt lets you know the time the star was ejected 
+    #integrate=True returns the stars integrated 
+    #position and velocity at time = tdisrupt
+    #All values in galpy units
+
+    RvR_lmc,dt_lmc= spdf_lmc.sample(n=nstar,returndt=True,integrate=True)
+    RvRt_lmc,dtt_lmc= spdft_lmc.sample(n=nstar,returndt=True,integrate=True)
+    
+    vxvva_lmc=np.column_stack([np.append(RvR_lmc[0],RvRt_lmc[0]),
+                           np.append(RvR_lmc[1],RvRt_lmc[1]),
+                           np.append(RvR_lmc[2],RvRt_lmc[2]),
+                           np.append(RvR_lmc[3],RvRt_lmc[3]),
+                           np.append(RvR_lmc[4],RvRt_lmc[4]),
+                           np.append(RvR_lmc[5],RvRt_lmc[5])])
+
+    oall_lmc=Orbit(vxvva_lmc,ro=ro,vo=vo,solarmotion=[-11.1, 24.0, 7.25])
+    dtall_lmc=np.append(dt_lmc,dtt_lmc)
+    
+    return o_lmc, oall_lmc, dtall_lmc
+    
 def orbit_plots(o, pot, tint=5):
     delt = np.linspace(0,-tint/to,1000)
     deltfwd = np.linspace(0, tint/to, 1000)
