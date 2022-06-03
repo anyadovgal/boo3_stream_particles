@@ -228,7 +228,7 @@ def streamorbitslmc(mass, o, tdisrupt, pot=MWPotential2014, nstar=100):
 def lmc_potential_wacc(tdisrupt, pot=MWPotential2014):
     olmc= Orbit.from_name('LMC')
     cdf= ChandrasekharDynamicalFrictionForce(GMs=10.**11.*units.Msun,rhm=5.*units.kpc,
-                                                 dens=MWPotential2014)
+                                                 dens=pot)
     ts= np.linspace(0.,-tdisrupt,1001)*units.Gyr
     olmc.integrate(ts,pot+cdf)
     
@@ -261,7 +261,7 @@ def lmc_potential_wacc(tdisrupt, pot=MWPotential2014):
     
 def streamorbitslmc_acc(mass, o, tdisrupt, pot=MWPotential2014, nstar=100):
     o_lmc = Orbit.from_name('LMC', ro=ro, vo=vo, solarmotion=[-11.1, 24.0, 7.25])
-    total_pot = lmc_potential_wacc(tdisrupt, pot=MWPotential2014)
+    total_pot = lmc_potential_wacc(tdisrupt, pot)
     
     #Now when you intitialize the distribution functions
     #you have to specify rtpot, which is the potential
