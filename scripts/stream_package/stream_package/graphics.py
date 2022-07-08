@@ -225,6 +225,8 @@ def streamorbitslmc(mass, o, tdisrupt, pot=MWPotential2014, nstar=100):
     
     return o_lmc, oall_lmc, dtall_lmc
 
+
+
 def lmc_potential_wacc(tdisrupt, pot=MWPotential2014):
     olmc= Orbit.from_name('LMC')
     cdf= ChandrasekharDynamicalFrictionForce(GMs=10.**11.*units.Msun,rhm=5.*units.kpc,
@@ -258,6 +260,58 @@ def lmc_potential_wacc(tdisrupt, pot=MWPotential2014):
     nip= NonInertialFrameForce(a0=[ax_int,ay_int,az_int])
     
     return moving_lmcpot + pot + nip
+    
+def streamorbitslmc_acc_lt(mass, o, tdisrupt, pot=MWPotential2014, nstar=100):
+    o_lmc = Orbit.from_name('LMC', ro=ro, vo=vo, solarmotion=[-11.1, 24.0, 7.25])
+    total_pot = lmc_potential_wacc(tdisrupt, pot)
+    
+    #Now when you intitialize the distribution functions
+    #you have to specify rtpot, which is the potential
+    #used to calculate the cluster's tidal radius. The
+    #calculation can't be done when the MovingPotential
+    #is included in total_pot
+
+    #Distribution function for the leading tail
+    #Note input values are scaled to galpy units
+    spdf_lmc= streamspraydf(mass/mo,
+                       progenitor=o,
+                       pot=total_pot,
+                       tdisrupt=tdisrupt/to,
+                       rtpot=pot)
+    #Distribution function for the trailing tail
+    spdft_lmc= streamspraydf(mass/mo,
+                       progenitor=o,
+                       pot=total_pot,
+                       tdisrupt=tdisrupt/to,
+                       rtpot=pot,
+                       leading=False)
+    
+    #Sample the distribution functions to ,create nstar
+    #returndt lets you know the time the star was ejected 
+    #integrate=True returns the stars integrated 
+    #position and velocity at time = tdisrupt
+    #All values in galpy units
+
+    RvR_lmc,dt_lmc= spdf_lmc.sample(n=nstar,returndt=True,integrate=True)
+    RvRt_lmc,dtt_lmc= spdft_lmc.sample(n=nstar,returndt=True,integrate=True)
+    
+    vxvva_lmc=np.column_stack([np.append(RvR_lmc[0],RvRt_lmc[0]),
+                           np.append(RvR_lmc[1],RvRt_lmc[1]),
+                           np.append(RvR_lmc[2],RvRt_lmc[2]),
+                           np.append(RvR_lmc[3],RvRt_lmc[3]),
+                           np.append(RvR_lmc[4],RvRt_lmc[4]),
+                           np.append(RvR_lmc[5],RvRt_lmc[5])])
+    
+    vxvv=np.column_stack([RvR_lmc[0],RvR_lmc[1],RvR_lmc[2],RvR_lmc[3],RvR_lmc[4],RvR_lmc[5]])
+    vxvvt=np.column_stack([RvRt_lmc[0],RvRt_lmc[1],RvRt_lmc[2],RvRt_lmc[3],RvRt_lmc[4],RvRt_lmc[5]])
+
+    oleading_lmc=Orbit(vxvv,ro=ro,vo=vo,solarmotion=[-11.1, 24.0, 7.25])
+    otrailing_lmc=Orbit(vxvvt,ro=ro,vo=vo,solarmotion=[-11.1, 24.0, 7.25])
+
+    oall_lmc=Orbit(vxvva_lmc,ro=ro,vo=vo,solarmotion=[-11.1, 24.0, 7.25])
+    dtall_lmc=np.append(dt_lmc,dtt_lmc)
+    
+    return o_lmc, oall_lmc, oleading_lmc, otrailing_lmc, dtall_lmc
     
 def streamorbitslmc_acc(mass, o, tdisrupt, pot=MWPotential2014, nstar=100):
     o_lmc = Orbit.from_name('LMC', ro=ro, vo=vo, solarmotion=[-11.1, 24.0, 7.25])
@@ -304,6 +358,7 @@ def streamorbitslmc_acc(mass, o, tdisrupt, pot=MWPotential2014, nstar=100):
     dtall_lmc=np.append(dt_lmc,dtt_lmc)
     
     return o_lmc, oall_lmc, dtall_lmc
+    
     
 def orbit_plots(o, pot, tint=5):
     delt = np.linspace(0,-tint/to,1000)
